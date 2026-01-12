@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+	"os"
 
 	"github.com/gorilla/websocket"
 	"github.com/joho/godotenv"
@@ -23,6 +24,7 @@ var (
 		CheckOrigin: func(r *http.Request) bool { return true },
 	}
 )
+var OpenAIKey = os.Getenv("OPENAI_API_KEY")
 
 func main() {
 	err := godotenv.Load()

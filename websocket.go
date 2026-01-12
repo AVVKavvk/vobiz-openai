@@ -4,7 +4,6 @@ import (
 	"encoding/json"
 	"log"
 	"net/http"
-	"os"
 	"time"
 
 	"github.com/gorilla/websocket"
@@ -70,11 +69,6 @@ type APIError struct {
 // --- Updated WebSocket Handler ---
 
 func HandleWebSocketStream(c echo.Context) error {
-	var OpenAIKey = os.Getenv("OPENAI_API_KEY") // Ensure this is set in your env
-
-	if OpenAIKey == "" {
-		log.Fatal("OPENAI_API_KEY environment variable is not set")
-	}
 	// 1. Upgrade Vobiz Connection
 	vobizWs, err := upgrader.Upgrade(c.Response(), c.Request(), nil)
 	if err != nil {
@@ -96,15 +90,18 @@ func HandleWebSocketStream(c echo.Context) error {
 	defer openAIWs.Close()
 	log.Println("✅ OpenAI Connected")
 
-	// 3. Configure Session - Use CORRECT flat format for audio
+	// 3. Configure Session - Enable input transcription to get user's speech as text
 	sessionUpdate := map[string]interface{}{
 		"type": "session.update",
 		"session": map[string]interface{}{
 			"modalities":          []string{"audio", "text"},
-			"instructions":        "You are Riya from Replaice AI. Be concise and helpful.",
+			"instructions":        "You are Riya from Replica AI. Be concise and helpful.",
 			"voice":               "alloy",
 			"input_audio_format":  "g711_ulaw",
 			"output_audio_format": "g711_ulaw",
+			"input_audio_transcription": map[string]interface{}{
+				"model": "whisper-1", // Enable transcription of user's speech
+			},
 			"turn_detection": map[string]interface{}{
 				"type": "server_vad",
 			},
@@ -163,9 +160,21 @@ func HandleWebSocketStream(c echo.Context) error {
 				}
 
 			case "response.audio_transcript.delta":
-				// Just log the transcript for debugging
+				// Assistant's transcript (what AI is saying)
 				if delta, ok := msg["delta"].(string); ok && delta != "" {
-					log.Printf("📝 Transcript: %s", delta)
+					log.Printf("🤖 AI says: %s", delta)
+				}
+
+			case "conversation.item.input_audio_transcription.completed":
+				// USER'S TRANSCRIPT - This is what the user said!
+				if transcript, ok := msg["transcript"].(string); ok && transcript != "" {
+					log.Printf("👤 USER said: %s", transcript)
+				}
+
+			case "conversation.item.input_audio_transcription.delta":
+				// USER'S TRANSCRIPT (streaming) - Real-time transcription
+				if delta, ok := msg["delta"].(string); ok && delta != "" {
+					log.Printf("👤 User speaking: %s", delta)
 				}
 
 			case "input_audio_buffer.speech_started":
