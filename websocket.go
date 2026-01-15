@@ -2,6 +2,7 @@ package main
 
 import (
 	"encoding/json"
+	"fmt"
 	"log"
 	"net/http"
 	"os"
@@ -15,9 +16,14 @@ import (
 
 type VobizInboundMessage struct {
 	Event    string `json:"event"`
-	StreamID string `json:"streamId"`
-	Media    struct {
-		Payload string `json:"payload"` // Base64 audio
+	StreamID string `json:"streamId"` // Present in 'media' events
+	Start    struct {
+		CallId    string `json:"callId"`
+		StreamId  string `json:"streamId"` // Present in 'start' events
+		AccountId string `json:"accountId"`
+	} `json:"start,omitempty"`
+	Media struct {
+		Payload string `json:"payload"`
 	} `json:"media,omitempty"`
 }
 
@@ -71,6 +77,7 @@ type APIError struct {
 
 func HandleWebSocketStream(c echo.Context) error {
 	var OpenAIKey = os.Getenv("OPENAI_API_KEY")
+	var callId string
 	// 1. Upgrade Vobiz Connection
 	vobizWs, err := upgrader.Upgrade(c.Response(), c.Request(), nil)
 	if err != nil {
@@ -207,8 +214,9 @@ func HandleWebSocketStream(c echo.Context) error {
 
 	// --- Goroutine B: Vobiz -> OpenAI (Listening) ---
 	for {
+
 		var msg VobizInboundMessage
-		err := vobizWs.ReadJSON(&msg)
+		err = vobizWs.ReadJSON(&msg)
 		if err != nil {
 			log.Println("🛑 Vobiz connection closed:", err)
 			break
@@ -216,7 +224,12 @@ func HandleWebSocketStream(c echo.Context) error {
 
 		switch msg.Event {
 		case "start":
-			log.Printf("📞 Call Started (SID: %s) - Triggering Greeting...", msg.StreamID)
+			callId = msg.Start.CallId
+
+			// %+v is your best friend for debugging structs!
+			log.Printf("Full Message Received: %+v", msg)
+			log.Printf("📞 Call Started (SID: %s) (CallID: %s)", msg.Start.StreamId, msg.Start.CallId)
+			log.Println(callId)
 
 			// Wait a moment for session to be fully configured
 			time.Sleep(200 * time.Millisecond)
@@ -277,5 +290,40 @@ func HandleWebSocketStream(c echo.Context) error {
 		}
 	}
 
+	return nil
+}
+
+func callEnd(callId string) error {
+	var VobizAuthID = os.Getenv("VOBIZ_AUTH_ID")
+	var VobizAuthToken = os.Getenv("VOBIZ_AUTH_TOKEN")
+
+	// Construct the URL using the account ID and call UUID
+	url := fmt.Sprintf("https://api.vobiz.ai/api/v1/Account/%s/Call/%s/", VobizAuthID, callId)
+
+	// Create a new DELETE request
+	req, err := http.NewRequest("DELETE", url, nil)
+	if err != nil {
+		return fmt.Errorf("failed to create request: %w", err)
+	}
+
+	// Add the required headers
+	req.Header.Set("X-Auth-ID", VobizAuthID)
+	req.Header.Set("X-Auth-Token", VobizAuthToken)
+	req.Header.Set("Content-Type", "application/json")
+
+	// Execute the request
+	client := &http.Client{}
+	resp, err := client.Do(req)
+	if err != nil {
+		return fmt.Errorf("failed to execute request: %w", err)
+	}
+	defer resp.Body.Close()
+
+	// Check if the response status is successful (usually 200 OK or 204 No Content)
+	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
+		return fmt.Errorf("vobiz api returned error status: %s", resp.Status)
+	}
+
+	log.Printf("Successfully terminated call: %s", callId)
 	return nil
 }
