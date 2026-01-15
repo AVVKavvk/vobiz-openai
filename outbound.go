@@ -33,15 +33,15 @@ type VobizCallPayload struct {
 // --- Configuration ---
 
 var (
-	VobizAuthID    = os.Getenv("VOBIZ_AUTH_ID")
-	VobizAuthToken = os.Getenv("VOBIZ_AUTH_TOKEN")
-	VobizBaseURL   = "https://api.vobiz.ai/api/v1/Account"
+	VobizBaseURL = "https://api.vobiz.ai/api/v1/Account"
 )
 
 // --- Handler ---
 
 // HandleOutboundCall initiates a call via Vobiz
 func HandleOutboundCall(c echo.Context) error {
+	var VobizAuthID = os.Getenv("VOBIZ_AUTH_ID")
+	var VobizAuthToken = os.Getenv("VOBIZ_AUTH_TOKEN")
 	log.Println("[Vobiz] outbound call api is triggered")
 
 	// 1. Parse Incoming Request

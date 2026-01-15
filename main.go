@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"log"
 	"net/http"
-	"os"
 
 	"github.com/gorilla/websocket"
 	"github.com/joho/godotenv"
@@ -14,7 +13,7 @@ import (
 
 // Configuration
 const (
-	OpenAIRealtimeURL = "wss://api.openai.com/v1/realtime?model=gpt-realtime"
+	OpenAIRealtimeURL = "wss://api.openai.com/v1/realtime?model=gpt-realtime-mini"
 	ServerPort        = ":8080"
 )
 
@@ -24,7 +23,6 @@ var (
 		CheckOrigin: func(r *http.Request) bool { return true },
 	}
 )
-var OpenAIKey = os.Getenv("OPENAI_API_KEY")
 
 func main() {
 	err := godotenv.Load()

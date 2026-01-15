@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"log"
 	"net/http"
+	"os"
 	"time"
 
 	"github.com/gorilla/websocket"
@@ -69,6 +70,7 @@ type APIError struct {
 // --- Updated WebSocket Handler ---
 
 func HandleWebSocketStream(c echo.Context) error {
+	var OpenAIKey = os.Getenv("OPENAI_API_KEY")
 	// 1. Upgrade Vobiz Connection
 	vobizWs, err := upgrader.Upgrade(c.Response(), c.Request(), nil)
 	if err != nil {
@@ -95,12 +97,12 @@ func HandleWebSocketStream(c echo.Context) error {
 		"type": "session.update",
 		"session": map[string]interface{}{
 			"modalities":          []string{"audio", "text"},
-			"instructions":        "You are Riya from Replica AI. Be concise and helpful.",
+			"instructions":        "You are Anika, a claims support agent at KIWI Insurance. You are empathetic, efficient, and reassuring. Your goal is to guide customers through the First Notice of Loss (FNOL) process for Motor insurance. CRITICAL: Follow a Zero-Repetition Policy. NEVER repeat or paraphrase any information provided by the customer (e.g., locations, registration numbers, or incident details). Use phrases like 'I have noted that' or 'That is recorded' and move immediately to the next question. Follow these steps: 1. Ensure Safety First: Confirm the customer and others are safe. 2. Build Calm Reassurance: Briefly acknowledge the situation empathetically. 3. Collect FNOL Info: Ask for Vehicle Registration Number (starts with state codes like MH, KA, DL). 4. Relationship: Confirm if they are the policyholder. 5. Open Narration: Ask 'Can you briefly tell me what happened?' and extract What, Where, When, Damage, and Third-party details. 6. Gap Filling: Ask only for missing details. 7. Police/FIR: Ask only if there are injuries or third-party damage. 8. Closing: Confirm current location, provide Claim Reference Number #123098, and send the WhatsApp link for photos. Ask only one short question at a time. Do not offer legal/medical advice or speculate on claim outcomes.",
 			"voice":               "alloy",
 			"input_audio_format":  "g711_ulaw",
 			"output_audio_format": "g711_ulaw",
 			"input_audio_transcription": map[string]interface{}{
-				"model": "whisper-1", // Enable transcription of user's speech
+				"model": "whisper-1",
 			},
 			"turn_detection": map[string]interface{}{
 				"type": "server_vad",
@@ -139,13 +141,13 @@ func HandleWebSocketStream(c echo.Context) error {
 			}
 
 			eventType, _ := msg["type"].(string)
-			log.Printf("📩 OpenAI Event Type: %s", eventType)
+			// log.Printf("📩 OpenAI Event Type: %s", eventType)
 
 			switch eventType {
 			case "response.audio.delta":
 				// This is the actual audio data!
 				if delta, ok := msg["delta"].(string); ok && delta != "" {
-					log.Printf("🔊 Got audio delta! Length: %d bytes", len(delta))
+					// log.Printf("🔊 Got audio delta! Length: %d bytes", len(delta))
 					payload := VobizOutboundMessage{
 						Event: "playAudio",
 						Media: &VobizMedia{
@@ -159,10 +161,15 @@ func HandleWebSocketStream(c echo.Context) error {
 					}
 				}
 
-			case "response.audio_transcript.delta":
+			// case "response.audio_transcript.delta":
+			// 	// Assistant's transcript (what AI is saying)
+			// 	if delta, ok := msg["delta"].(string); ok && delta != "" {
+			// 		log.Printf("🤖 AI says: %s", delta)
+			// 	}
+			case "response.audio_transcript.done":
 				// Assistant's transcript (what AI is saying)
-				if delta, ok := msg["delta"].(string); ok && delta != "" {
-					log.Printf("🤖 AI says: %s", delta)
+				if delta, ok := msg["transcript"].(string); ok && delta != "" {
+					log.Printf("🤖 AI whole transcript: %s", delta)
 				}
 
 			case "conversation.item.input_audio_transcription.completed":
@@ -171,11 +178,11 @@ func HandleWebSocketStream(c echo.Context) error {
 					log.Printf("👤 USER said: %s", transcript)
 				}
 
-			case "conversation.item.input_audio_transcription.delta":
-				// USER'S TRANSCRIPT (streaming) - Real-time transcription
-				if delta, ok := msg["delta"].(string); ok && delta != "" {
-					log.Printf("👤 User speaking: %s", delta)
-				}
+			// case "conversation.item.input_audio_transcription.delta":
+			// 	// USER'S TRANSCRIPT (streaming) - Real-time transcription
+			// 	if delta, ok := msg["delta"].(string); ok && delta != "" {
+			// 		log.Printf("👤 User speaking: %s", delta)
+			// 	}
 
 			case "input_audio_buffer.speech_started":
 				log.Println("🎤 User started talking - Clearing Vobiz buffer")
@@ -243,7 +250,7 @@ func HandleWebSocketStream(c echo.Context) error {
 				"type": "response.create",
 				"response": map[string]interface{}{
 					"modalities":   []string{"audio", "text"},
-					"instructions": "Introduce yourself as Riya from Replica AI and ask how you can help.",
+					"instructions": "Introduce yourself as Hello, I'm Anika from KIWI Insurance and ask how you can help.",
 				},
 			}
 
