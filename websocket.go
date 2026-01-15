@@ -78,6 +78,7 @@ type APIError struct {
 func HandleWebSocketStream(c echo.Context) error {
 	var OpenAIKey = os.Getenv("OPENAI_API_KEY")
 	var callId string
+	var transcripts []map[string]interface{}
 	// 1. Upgrade Vobiz Connection
 	vobizWs, err := upgrader.Upgrade(c.Response(), c.Request(), nil)
 	if err != nil {
@@ -104,13 +105,39 @@ func HandleWebSocketStream(c echo.Context) error {
 		"type": "session.update",
 		"session": map[string]interface{}{
 			"modalities":          []string{"audio", "text"},
-			"instructions":        "You are Anika, a claims support agent at KIWI Insurance. You are empathetic, efficient, and reassuring. Your goal is to guide customers through the First Notice of Loss (FNOL) process for Motor insurance. CRITICAL: Follow a Zero-Repetition Policy. NEVER repeat or paraphrase any information provided by the customer (e.g., locations, registration numbers, or incident details). Use phrases like 'I have noted that' or 'That is recorded' and move immediately to the next question. Follow these steps: 1. Ensure Safety First: Confirm the customer and others are safe. 2. Build Calm Reassurance: Briefly acknowledge the situation empathetically. 3. Collect FNOL Info: Ask for Vehicle Registration Number (starts with state codes like MH, KA, DL). 4. Relationship: Confirm if they are the policyholder. 5. Open Narration: Ask 'Can you briefly tell me what happened?' and extract What, Where, When, Damage, and Third-party details. 6. Gap Filling: Ask only for missing details. 7. Police/FIR: Ask only if there are injuries or third-party damage. 8. Closing: Confirm current location, provide Claim Reference Number #123098, and send the WhatsApp link for photos. Ask only one short question at a time. Do not offer legal/medical advice or speculate on claim outcomes.",
+			"instructions":        "You are Anika, a claims support agent at KIWI Insurance. You are empathetic, efficient, and reassuring. Your goal is to guide customers through the First Notice of Loss (FNOL) process for Motor insurance. CRITICAL: Follow a Zero-Repetition Policy. NEVER repeat or paraphrase any information provided by the customer (e.g., locations, registration numbers, or incident details). Use phrases like 'I have noted that' or 'That is recorded' and move immediately to the next question. Follow these steps: 1. Ensure Safety First: Confirm the customer and others are safe. 2. Build Calm Reassurance: Briefly acknowledge the situation empathetically. 3. Collect FNOL Info: Ask for Vehicle Registration Number (starts with state codes like MH, KA, DL). 4. Relationship: Confirm if they are the policyholder. 5. Open Narration: Ask 'Can you briefly tell me what happened?' and extract What, Where, When, Damage, and Third-party details. 6. Gap Filling: Ask only for missing details. 7. Police/FIR: Ask only if there are injuries or third-party damage. 8. Closing: Confirm current location, provide Claim Reference Number #123098, and send the WhatsApp link for photos. Ask only one short question at a time. Do not offer legal/medical advice or speculate on claim outcomes.
+			If user done with call or ask for end call then use call_end function.
+			if user asked or if user information needed for their info then use get_customer_info function.",
 			"voice":               "alloy",
 			"input_audio_format":  "g711_ulaw",
 			"output_audio_format": "g711_ulaw",
 			"input_audio_transcription": map[string]interface{}{
 				"model": "whisper-1",
 			},
+			"tools": []map[string]interface{}{
+				{
+					"type":        "function",
+					"name":        "call_end",
+					"description": "Ends the current phone call immediately.",
+					"parameters": map[string]interface{}{
+						"type": "object",
+						"properties": map[string]interface{}{
+							"callId": map[string]interface{}{"type": "string"},
+						},
+						"required": []string{"callId"},
+					},
+				},
+				{
+					"type":        "function",
+					"name":        "get_customer_info",
+					"description": "Retrieves the user's name, age, and address.",
+					"parameters": map[string]interface{}{
+						"type":       "object",
+						"properties": map[string]interface{}{},
+					},
+				},
+			},
+			"tool_choice": "auto",
 			"turn_detection": map[string]interface{}{
 				"type": "server_vad",
 			},
@@ -147,8 +174,10 @@ func HandleWebSocketStream(c echo.Context) error {
 				continue
 			}
 
+			// fmt.Println("Openai MGS: %v", msg)
+
 			eventType, _ := msg["type"].(string)
-			// log.Printf("📩 OpenAI Event Type: %s", eventType)
+			log.Printf("--->>>>📩 ---->>> OpenAI Event Type: %s", eventType)
 
 			switch eventType {
 			case "response.audio.delta":
@@ -175,14 +204,26 @@ func HandleWebSocketStream(c echo.Context) error {
 			// 	}
 			case "response.audio_transcript.done":
 				// Assistant's transcript (what AI is saying)
+				fmt.Println("Openai MGS: %v", msg)
 				if delta, ok := msg["transcript"].(string); ok && delta != "" {
 					log.Printf("🤖 AI whole transcript: %s", delta)
+					transcript := map[string]interface{}{
+						"role":    "assistant",
+						"content": delta,
+					}
+					transcripts = append(transcripts, transcript)
 				}
 
 			case "conversation.item.input_audio_transcription.completed":
 				// USER'S TRANSCRIPT - This is what the user said!
+				fmt.Println("Openai MGS: %v", msg)
 				if transcript, ok := msg["transcript"].(string); ok && transcript != "" {
 					log.Printf("👤 USER said: %s", transcript)
+					trans := map[string]interface{}{
+						"role":    "assistant",
+						"content": transcript,
+					}
+					transcripts = append(transcripts, trans)
 				}
 
 			// case "conversation.item.input_audio_transcription.delta":
@@ -192,23 +233,76 @@ func HandleWebSocketStream(c echo.Context) error {
 			// 	}
 
 			case "input_audio_buffer.speech_started":
+				fmt.Println("Openai MGS: %v", msg)
 				log.Println("🎤 User started talking - Clearing Vobiz buffer")
 				vobizWs.WriteJSON(VobizOutboundMessage{Event: "clearAudio"})
 				openAIWs.WriteJSON(map[string]string{"type": "response.cancel"})
 
 			case "error":
+				fmt.Println("Openai MGS: %v", msg)
 				if errDetails, ok := msg["error"].(map[string]interface{}); ok {
 					log.Printf("❌ OpenAI Error: %v", errDetails)
 				}
 
 			case "session.updated":
+				fmt.Println("Openai MGS: %v", msg)
 				log.Println("✅ Session Configured Successfully")
 
 			case "response.done":
+				fmt.Println("Openai MGS: %v", msg)
 				log.Println("✅ Response completed")
 				// Log the full response.done to see what's inside
 				log.Printf("📋 Response Done Details: %v", msg)
+			case "response.function_call_arguments.done":
+				fmt.Println("Openai MGS: %v", msg)
+				// OpenAI has finished generating arguments for a function
+				fnName, _ := msg["name"].(string)
+				argsRaw, _ := msg["arguments"].(string)
+				callID, _ := msg["call_id"].(string) // OpenAI's internal tool call ID
+
+				log.Printf("🛠️ Tool Call: %s with args: %s", fnName, argsRaw)
+
+				var toolOutput interface{}
+
+				if fnName == "get_customer_info" {
+					toolOutput = getCustomerInfo()
+				} else if fnName == "call_end" {
+					// Parse the callId from the AI's arguments
+					var args struct {
+						CallId string `json:"callId"`
+					}
+					json.Unmarshal([]byte(argsRaw), &args)
+
+					// Use the callId provided by the AI, or fallback to the one captured in 'start' event
+					targetID := args.CallId
+					if targetID == "" {
+						targetID = callId
+					}
+
+					err := callEnd(callId)
+					if err != nil {
+						toolOutput = map[string]string{"error": err.Error()}
+					} else {
+						toolOutput = map[string]string{"status": "call_terminated"}
+					}
+				}
+
+				// STEP 3: Send the result back to OpenAI
+				outputBytes, _ := json.Marshal(toolOutput)
+				responseEvent := map[string]interface{}{
+					"type": "conversation.item.create",
+					"item": map[string]interface{}{
+						"type":    "function_call_output",
+						"call_id": callID,
+						"output":  string(outputBytes),
+					},
+				}
+				openAIWs.WriteJSON(responseEvent)
+
+				// Trigger the AI to acknowledge the info and continue speaking
+				openAIWs.WriteJSON(map[string]interface{}{"type": "response.create"})
 			}
+
 		}
 	}()
 
@@ -286,6 +380,18 @@ func HandleWebSocketStream(c echo.Context) error {
 
 		case "stop":
 			log.Println("🛑 Stream Stopped by Vobiz")
+			jsonData, err := json.MarshalIndent(transcripts, "", "    ")
+			if err != nil {
+				log.Fatalf("Error encoding JSON: %s", err)
+			}
+
+			// Write to transcript.json
+			err = os.WriteFile("transcript.json", jsonData, 0644)
+			if err != nil {
+				log.Fatalf("Error writing file: %s", err)
+			}
+
+			log.Println("Successfully saved to transcript.json")
 			return nil
 		}
 	}
@@ -326,4 +432,14 @@ func callEnd(callId string) error {
 
 	log.Printf("Successfully terminated call: %s", callId)
 	return nil
+}
+
+func getCustomerInfo() map[string]interface{} {
+
+	return map[string]interface{}{
+		"name":    "Vipin Kumawat",
+		"age":     22,
+		"gender":  "Male",
+		"address": "Village Bhoya, Post Harsh , Sikar, Rajasthan , India, 332021",
+	}
 }
