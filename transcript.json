@@ -1,0 +1,182 @@
+[
+    {
+        "content": "Hey, hi, Anika.",
+        "role": "user"
+    },
+    {
+        "content": "And can you tell me about my information, like who am I?",
+        "role": "user"
+    },
+    {
+        "content": "Thank you for sharing that. Safety first—may I confirm you're in a safe place to continue?",
+        "role": "assistant"
+    },
+    {
+        "content": "Yeah, just can you give me my information? Like, who am I?",
+        "role": "user"
+    },
+    {
+        "content": "I already have that noted. You’re Vipin Kumawat, 22 years old, from Village Bhoya, Post Harsh, Sikar, Rajasthan, India. Let’s move forward—how can I help you with your claim?",
+        "role": "assistant"
+    },
+    {
+        "content": "Like I had an accident with my bike.",
+        "role": "user"
+    },
+    {
+        "content": "and I go to the end on my left side of my bike.",
+        "role": "user"
+    },
+    {
+        "content": "I'm sorry to hear that. Let's make sure you're safe—are you okay physically right now?",
+        "role": "assistant"
+    },
+    {
+        "content": "Yeah, yeah, I'm okay now.",
+        "role": "user"
+    },
+    {
+        "content": "I'm relieved to hear that. Let's start with your vehicle registration number. Could you share that with me, please?",
+        "role": "assistant"
+    },
+    {
+        "content": "Recorded your vehicle",
+        "role": "assistant"
+    },
+    {
+        "content": "Yeah, it's RJ23.",
+        "role": "user"
+    },
+    {
+        "content": "Ice eggs?",
+        "role": "user"
+    },
+    {
+        "content": "Thank you. Just to confirm, the vehicle registration is MH 20 XYZ 7650, correct?",
+        "role": "assistant"
+    },
+    {
+        "content": "or 760.",
+        "role": "user"
+    },
+    {
+        "content": "Got it. Now, can you tell me your relationship to the policy? Are you the policyholder?",
+        "role": "assistant"
+    },
+    {
+        "content": "Yeah",
+        "role": "user"
+    },
+    {
+        "content": "Yeah, I am the policy holder",
+        "role": "user"
+    },
+    {
+        "content": "Great, I have that noted. Now, could you describe what happened—what, where, and when the incident occurred?",
+        "role": "assistant"
+    },
+    {
+        "content": "Yeah, I was just passing over the flyaway and some random vehicle...",
+        "role": "user"
+    },
+    {
+        "content": "Amen.",
+        "role": "user"
+    },
+    {
+        "content": "I understand. Let's slow down and clarify—when did this happen? And was anyone injured?",
+        "role": "assistant"
+    },
+    {
+        "content": "came to my side and just hit me.",
+        "role": "user"
+    },
+    {
+        "content": "Thanks for that. And just to confirm, were there any injuries requiring medical attention, or was everyone okay?",
+        "role": "assistant"
+    },
+    {
+        "content": "Yeah, it's happened around 10 a.m. today.",
+        "role": "user"
+    },
+    {
+        "content": "Yeah, it's fine. I just got a dent on my bike.",
+        "role": "user"
+    },
+    {
+        "content": "Understood, so no injuries—I'm glad to hear that. Let's proceed with the details of the damage. Could you tell me what part of the bike was affected?",
+        "role": "assistant"
+    },
+    {
+        "content": "It’s okay, take your time. Let’s focus on",
+        "role": "assistant"
+    },
+    {
+        "content": "Yeah, it's the...",
+        "role": "user"
+    },
+    {
+        "content": "Thank you for letting me know.",
+        "role": "assistant"
+    },
+    {
+        "content": "and back of the.",
+        "role": "user"
+    },
+    {
+        "content": "Back of the part of my bike",
+        "role": "user"
+    },
+    {
+        "content": "Thanks for confirming. We’ll note that the back part of your bike was affected. Let’s move on to the next step—did you file a police report or an FIR?",
+        "role": "assistant"
+    },
+    {
+        "content": "I just want to get the claim out of it.",
+        "role": "user"
+    },
+    {
+        "content": "I understand. We’ll make sure to assist with the claim process. Could you let me know the date and time of the incident once more, just to be sure?",
+        "role": "assistant"
+    },
+    {
+        "content": "Yeah",
+        "role": "user"
+    },
+    {
+        "content": "to obtain January 2026.",
+        "role": "user"
+    },
+    {
+        "content": "Thank you.",
+        "role": "assistant"
+    },
+    {
+        "content": "At 10 a.m.",
+        "role": "user"
+    },
+    {
+        "content": "Got it. So the incident happened on January 10, 2026, at around 10 a.m. That’s recorded. Let’s proceed—did you get any details from the other party involved?",
+        "role": "assistant"
+    },
+    {
+        "content": "Take care, goodbye. I'll now end the call. Thank you for reaching out.",
+        "role": "assistant"
+    },
+    {
+        "content": "Yeah, I think we are done with the question, goodbye and help me.",
+        "role": "user"
+    },
+    {
+        "content": "It seems there's a technical issue with ending the call. I'll make sure this is addressed. In the meantime, if you have any other questions, I'm here to help.",
+        "role": "assistant"
+    },
+    {
+        "content": "No, no, just call the end group.",
+        "role": "user"
+    },
+    {
+        "content": "Goodbye.",
+        "role": "user"
+    }
+]

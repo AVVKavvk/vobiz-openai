@@ -104,10 +104,24 @@ func HandleWebSocketStream(c echo.Context) error {
 	sessionUpdate := map[string]interface{}{
 		"type": "session.update",
 		"session": map[string]interface{}{
-			"modalities":          []string{"audio", "text"},
-			"instructions":        "You are Anika, a claims support agent at KIWI Insurance. You are empathetic, efficient, and reassuring. Your goal is to guide customers through the First Notice of Loss (FNOL) process for Motor insurance. CRITICAL: Follow a Zero-Repetition Policy. NEVER repeat or paraphrase any information provided by the customer (e.g., locations, registration numbers, or incident details). Use phrases like 'I have noted that' or 'That is recorded' and move immediately to the next question. Follow these steps: 1. Ensure Safety First: Confirm the customer and others are safe. 2. Build Calm Reassurance: Briefly acknowledge the situation empathetically. 3. Collect FNOL Info: Ask for Vehicle Registration Number (starts with state codes like MH, KA, DL). 4. Relationship: Confirm if they are the policyholder. 5. Open Narration: Ask 'Can you briefly tell me what happened?' and extract What, Where, When, Damage, and Third-party details. 6. Gap Filling: Ask only for missing details. 7. Police/FIR: Ask only if there are injuries or third-party damage. 8. Closing: Confirm current location, provide Claim Reference Number #123098, and send the WhatsApp link for photos. Ask only one short question at a time. Do not offer legal/medical advice or speculate on claim outcomes.
-			If user done with call or ask for end call then use call_end function.
-			if user asked or if user information needed for their info then use get_customer_info function.",
+			"modalities": []string{"audio", "text"},
+			"instructions": `You are Anika, a claims support agent at KIWI Insurance. You are empathetic, efficient, and reassuring. 
+
+### CORE POLICIES:
+1. ZERO-REPETITION: Never repeat customer details. Use "Recorded" or "I have that noted" and move on.
+2. ONE QUESTION AT A TIME: Keep responses short and focused.
+3. SAFETY FIRST: Always confirm safety before data collection.
+
+### FUNCTION CALLING PROTOCOLS:
+- **get_customer_info**: Call this immediately if the user asks "What information do you have on me?" or if you need to verify their identity/address to proceed with the claim. Do not guess their details; use the tool.
+- **call_end**: Trigger this tool ONLY when:
+    a) The customer says goodbye or indicates they want to hang up.
+    b) You have provided the Claim Reference Number (#123098) and confirmed the WhatsApp link was sent.
+    c) The user confirms they have no further questions.
+    Always say a brief, professional closing (e.g., "Take care, goodbye") before the tool executes.
+
+### FNOL STEPS:
+1. Confirm Safety. 2. Build Reassurance. 3. Vehicle Reg (MH/KA/DL etc.). 4. Relationship to Policy. 5. Incident Narration (What/Where/When). 6. Fill Gaps. 7. Police/FIR (if injuries). 8. Closing & Reference Number.`,
 			"voice":               "alloy",
 			"input_audio_format":  "g711_ulaw",
 			"output_audio_format": "g711_ulaw",
@@ -118,11 +132,11 @@ func HandleWebSocketStream(c echo.Context) error {
 				{
 					"type":        "function",
 					"name":        "call_end",
-					"description": "Ends the current phone call immediately.",
+					"description": "Ends the current phone call immediately. Trigger this when the conversation is finished or the user wants to hang up.",
 					"parameters": map[string]interface{}{
 						"type": "object",
 						"properties": map[string]interface{}{
-							"callId": map[string]interface{}{"type": "string"},
+							"callId": map[string]interface{}{"type": "string", "description": "The unique identifier for the call session."},
 						},
 						"required": []string{"callId"},
 					},
@@ -130,7 +144,7 @@ func HandleWebSocketStream(c echo.Context) error {
 				{
 					"type":        "function",
 					"name":        "get_customer_info",
-					"description": "Retrieves the user's name, age, and address.",
+					"description": "Retrieves the user's name, age, and address from the database.",
 					"parameters": map[string]interface{}{
 						"type":       "object",
 						"properties": map[string]interface{}{},
@@ -220,7 +234,7 @@ func HandleWebSocketStream(c echo.Context) error {
 				if transcript, ok := msg["transcript"].(string); ok && transcript != "" {
 					log.Printf("👤 USER said: %s", transcript)
 					trans := map[string]interface{}{
-						"role":    "assistant",
+						"role":    "user",
 						"content": transcript,
 					}
 					transcripts = append(transcripts, trans)
@@ -312,6 +326,18 @@ func HandleWebSocketStream(c echo.Context) error {
 		var msg VobizInboundMessage
 		err = vobizWs.ReadJSON(&msg)
 		if err != nil {
+			jsonData, err := json.MarshalIndent(transcripts, "", "    ")
+			if err != nil {
+				log.Fatalf("Error encoding JSON: %s", err)
+			}
+
+			// Write to transcript.json
+			err = os.WriteFile("transcript.json", jsonData, 0644)
+			if err != nil {
+				log.Fatalf("Error writing file: %s", err)
+			}
+
+			log.Println("Successfully saved to transcript.json")
 			log.Println("🛑 Vobiz connection closed:", err)
 			break
 		}
@@ -380,18 +406,7 @@ func HandleWebSocketStream(c echo.Context) error {
 
 		case "stop":
 			log.Println("🛑 Stream Stopped by Vobiz")
-			jsonData, err := json.MarshalIndent(transcripts, "", "    ")
-			if err != nil {
-				log.Fatalf("Error encoding JSON: %s", err)
-			}
 
-			// Write to transcript.json
-			err = os.WriteFile("transcript.json", jsonData, 0644)
-			if err != nil {
-				log.Fatalf("Error writing file: %s", err)
-			}
-
-			log.Println("Successfully saved to transcript.json")
 			return nil
 		}
 	}
