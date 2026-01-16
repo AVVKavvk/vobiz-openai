@@ -1,0 +1,18 @@
+name: vobiz-openai
+services:
+  rabbitmq:
+    image: rabbitmq:3-management
+    container_name: rabbitmq
+    ports:
+      - "5672:5672" # RabbitMQ port
+      - "15672:15672" # Management UI port
+    environment:
+      RABBITMQ_DEFAULT_USER: guest
+      RABBITMQ_DEFAULT_PASS: guest
+
+  redis:
+    image: redis:7-alpine
+    container_name: redis_opiz
+    ports:
+      - "6379:6379"
+    command: redis-server --requirepass mypass --appendonly yes

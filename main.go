@@ -5,6 +5,7 @@ import (
 	"log"
 	"net/http"
 
+	"github.com/AVVKavvk/openai-vobiz/rabbitmq"
 	"github.com/gorilla/websocket"
 	"github.com/joho/godotenv"
 	"github.com/labstack/echo/v4"
@@ -41,6 +42,9 @@ func main() {
 	e.GET("/stream", HandleWebSocketStream)
 	e.POST("/hangup", handleHangup)
 	e.POST("/outbound-call", HandleOutboundCall)
+
+	//Consumers
+	rabbitmq.RabbitMQConsumer()
 
 	e.Logger.Fatal(e.Start(ServerPort))
 }

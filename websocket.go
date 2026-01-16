@@ -8,6 +8,9 @@ import (
 	"os"
 	"time"
 
+	"github.com/AVVKavvk/openai-vobiz/models"
+	"github.com/AVVKavvk/openai-vobiz/rabbitmq"
+	"github.com/AVVKavvk/openai-vobiz/redisClient"
 	"github.com/gorilla/websocket"
 	"github.com/labstack/echo/v4"
 )
@@ -78,7 +81,7 @@ type APIError struct {
 func HandleWebSocketStream(c echo.Context) error {
 	var OpenAIKey = os.Getenv("OPENAI_API_KEY")
 	var callId string
-	var transcripts []map[string]interface{}
+
 	// 1. Upgrade Vobiz Connection
 	vobizWs, err := upgrader.Upgrade(c.Response(), c.Request(), nil)
 	if err != nil {
@@ -221,11 +224,13 @@ func HandleWebSocketStream(c echo.Context) error {
 				fmt.Println("Openai MGS: %v", msg)
 				if delta, ok := msg["transcript"].(string); ok && delta != "" {
 					log.Printf("🤖 AI whole transcript: %s", delta)
-					transcript := map[string]interface{}{
-						"role":    "assistant",
-						"content": delta,
+					trans := models.TranscriptModel{
+						Role:    "AI",
+						Content: delta,
+						CallId:  callId,
 					}
-					transcripts = append(transcripts, transcript)
+					rabbitmq.RabbitMQProducer(trans)
+
 				}
 
 			case "conversation.item.input_audio_transcription.completed":
@@ -233,11 +238,13 @@ func HandleWebSocketStream(c echo.Context) error {
 				fmt.Println("Openai MGS: %v", msg)
 				if transcript, ok := msg["transcript"].(string); ok && transcript != "" {
 					log.Printf("👤 USER said: %s", transcript)
-					trans := map[string]interface{}{
-						"role":    "user",
-						"content": transcript,
+					trans := models.TranscriptModel{
+						Role:    "User",
+						Content: transcript,
+						CallId:  callId,
 					}
-					transcripts = append(transcripts, trans)
+					rabbitmq.RabbitMQProducer(trans)
+
 				}
 
 			// case "conversation.item.input_audio_transcription.delta":
@@ -326,18 +333,16 @@ func HandleWebSocketStream(c echo.Context) error {
 		var msg VobizInboundMessage
 		err = vobizWs.ReadJSON(&msg)
 		if err != nil {
-			jsonData, err := json.MarshalIndent(transcripts, "", "    ")
+
 			if err != nil {
 				log.Fatalf("Error encoding JSON: %s", err)
 			}
 
-			// Write to transcript.json
-			err = os.WriteFile("transcript.json", jsonData, 0644)
-			if err != nil {
-				log.Fatalf("Error writing file: %s", err)
+			transcrips := redisClient.GetAllTranscript(callId)
+			for _, transcript := range transcrips {
+				fmt.Printf("📞 Transcript: %v\n", transcript)
 			}
 
-			log.Println("Successfully saved to transcript.json")
 			log.Println("🛑 Vobiz connection closed:", err)
 			break
 		}
