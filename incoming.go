@@ -10,31 +10,29 @@ import (
 )
 
 func HandleIncomingCall(c echo.Context) error {
-	// ... (parsing logic remains the same) ...
+	// 1. Extract the specific parameters from the POST body
+	callUUID := c.FormValue("CallUUID")
+	from := c.FormValue("From")
+	to := c.FormValue("To")
 
-	// 1. Construct the WebSocket URL
+	// Log them for debugging
+	log.Printf("Call Received - UUID: %s, From: %s, To: %s", callUUID, from, to)
+
+	// 2. Construct the WebSocket URL
 	host := c.Request().Host
 	baseURL := fmt.Sprintf("wss://%s/stream", host)
-	queryString := c.Request().URL.RawQuery // This will include the 'from_number' and 'to_number' params.Encode()
 
-	var fullURL string
-	if queryString != "" {
-		fullURL = fmt.Sprintf("%s?%s", baseURL, queryString)
-	} else {
-		fullURL = baseURL
-	}
+	// You can manually append the specific params to the WebSocket URL
+	fullURL := fmt.Sprintf("%s?calluuid=%s&from=%s&to=%s", baseURL, callUUID, from, to)
 
-	// 2. Escape & for XML
+	// 3. Escape & for XML
 	finalURLForXML := strings.ReplaceAll(fullURL, "&", "&amp;")
 
-	log.Printf("WSS URL %s", fullURL)
-
-	// 3. STRICT XML FORMATTING (No spaces inside Stream!)
+	// 4. Generate XML Response
 	xmlResponse := fmt.Sprintf(`<?xml version="1.0" encoding="UTF-8"?>
 <Response>
 <Stream bidirectional="true" keepCallAlive="true" contentType="audio/x-mulaw;rate=8000">%s</Stream>
 </Response>`, finalURLForXML)
 
-	// Set the Content-Type explicitly to application/xml
 	return c.Blob(http.StatusOK, "application/xml", []byte(xmlResponse))
 }

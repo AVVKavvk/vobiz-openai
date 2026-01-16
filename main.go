@@ -43,10 +43,21 @@ func main() {
 	e.POST("/hangup", handleHangup)
 	e.POST("/outbound-call", HandleOutboundCall)
 
-	//Consumers
-	rabbitmq.RabbitMQConsumer()
+	go func() {
+
+		defer func() {
+			if err := recover(); err != nil {
+				fmt.Println(err)
+			}
+			//Consumers
+			rabbitmq.RabbitMQConsumer()
+		}()
+		//Consumers
+		rabbitmq.RabbitMQConsumer()
+	}()
 
 	e.Logger.Fatal(e.Start(ServerPort))
+
 }
 
 // handleIncomingCall returns the XML telling Vobiz to connect to our WebSocket

@@ -1,8 +1,6 @@
 package redisClient
 
 import (
-	"encoding/json"
-
 	"github.com/AVVKavvk/openai-vobiz/models"
 )
 
@@ -10,7 +8,11 @@ func AppendTranscript(transcript models.TranscriptModel, callId string) error {
 	rc := GetRedisClient()
 	key := "transcript:" + callId
 
-	return rc.RPush(key, transcript).Err()
+	data, err := transcript.MarshalBinary()
+	if err != nil {
+		return err
+	}
+	return rc.RPush(key, data).Err()
 }
 
 func GetAllTranscript(callId string) []models.TranscriptModel {
@@ -22,7 +24,7 @@ func GetAllTranscript(callId string) []models.TranscriptModel {
 
 	for _, v := range result.Val() {
 		var transcriptModel models.TranscriptModel
-		err := json.Unmarshal([]byte(v), &transcriptModel)
+		err := transcriptModel.UnmarshalBinary([]byte(v))
 		if err != nil {
 			panic(err)
 		}

@@ -82,6 +82,13 @@ func HandleWebSocketStream(c echo.Context) error {
 	var OpenAIKey = os.Getenv("OPENAI_API_KEY")
 	var callId string
 
+	// Get the parameters from the URL
+	from := c.QueryParam("from")
+	to := c.QueryParam("to")
+	uuid := c.QueryParam("calluuid")
+
+	log.Printf("WS Connection for Call %s: From %s to %s", uuid, from, to)
+
 	// 1. Upgrade Vobiz Connection
 	vobizWs, err := upgrader.Upgrade(c.Response(), c.Request(), nil)
 	if err != nil {
@@ -334,13 +341,12 @@ func HandleWebSocketStream(c echo.Context) error {
 		err = vobizWs.ReadJSON(&msg)
 		if err != nil {
 
-			if err != nil {
-				log.Fatalf("Error encoding JSON: %s", err)
-			}
-
 			transcrips := redisClient.GetAllTranscript(callId)
 			for _, transcript := range transcrips {
-				fmt.Printf("📞 Transcript: %v\n", transcript)
+				// fmt.Printf("📞 Transcript: %v\n", transcript)
+				fmt.Printf("Role: %s \t", transcript.Role)
+				fmt.Printf("Content: %s \t", transcript.Content)
+				fmt.Printf("CallId: %s \n", transcript.CallId)
 			}
 
 			log.Println("🛑 Vobiz connection closed:", err)
