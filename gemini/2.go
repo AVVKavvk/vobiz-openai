@@ -1,5 +1,8 @@
 package gemini
 
+// ALTERNATIVE VERSION: Uses Google AI API with Gemini 2.0 Flash Live
+// This version works with API keys instead of requiring Vertex AI setup
+
 import (
 	"encoding/base64"
 	"encoding/json"
@@ -16,171 +19,11 @@ import (
 	"github.com/labstack/echo/v4"
 )
 
-// --- Structs for Vobiz Messages (unchanged) ---
+// Note: Structs are the same as in the main file, so they're omitted here
+// to avoid duplication. In practice, you'd use one file or the other.
 
-type VobizInboundMessage struct {
-	Event    string `json:"event"`
-	StreamID string `json:"streamId"`
-	Start    struct {
-		CallId    string `json:"callId"`
-		StreamId  string `json:"streamId"`
-		AccountId string `json:"accountId"`
-	} `json:"start,omitempty"`
-	Media struct {
-		Payload string `json:"payload"`
-	} `json:"media,omitempty"`
-}
-
-type VobizOutboundMessage struct {
-	Event string      `json:"event"`
-	Media *VobizMedia `json:"media,omitempty"`
-}
-
-type VobizMedia struct {
-	ContentType string `json:"contentType"`
-	SampleRate  int    `json:"sampleRate"`
-	Payload     string `json:"payload"`
-}
-
-// --- Gemini Live API Structs ---
-
-// Client -> Gemini Messages
-type GeminiClientMessage struct {
-	Setup         *GeminiSetup         `json:"setup,omitempty"`
-	ClientContent *GeminiClientContent `json:"clientContent,omitempty"`
-	RealtimeInput *GeminiRealtimeInput `json:"realtimeInput,omitempty"`
-	ToolResponse  *GeminiToolResponse  `json:"toolResponse,omitempty"`
-}
-
-type GeminiSetup struct {
-	Model             string                  `json:"model"`
-	GenerationConfig  *GeminiGenerationConfig `json:"generationConfig,omitempty"`
-	SystemInstruction *GeminiContent          `json:"systemInstruction,omitempty"`
-	Tools             []GeminiTool            `json:"tools,omitempty"`
-}
-
-type GeminiGenerationConfig struct {
-	ResponseModalities []string            `json:"responseModalities,omitempty"`
-	SpeechConfig       *GeminiSpeechConfig `json:"speechConfig,omitempty"`
-	Temperature        float64             `json:"temperature,omitempty"`
-	TopP               float64             `json:"topP,omitempty"`
-	TopK               int                 `json:"topK,omitempty"`
-}
-
-type GeminiSpeechConfig struct {
-	VoiceConfig *GeminiVoiceConfig `json:"voiceConfig,omitempty"`
-}
-
-type GeminiVoiceConfig struct {
-	PrebuiltVoiceConfig *GeminiPrebuiltVoiceConfig `json:"prebuiltVoiceConfig,omitempty"`
-}
-
-type GeminiPrebuiltVoiceConfig struct {
-	VoiceName string `json:"voiceName"`
-}
-
-type GeminiClientContent struct {
-	Turns        []GeminiContent `json:"turns,omitempty"`
-	TurnComplete bool            `json:"turnComplete,omitempty"`
-}
-
-type GeminiContent struct {
-	Role  string       `json:"role,omitempty"`
-	Parts []GeminiPart `json:"parts"`
-}
-
-type GeminiPart struct {
-	Text             string                  `json:"text,omitempty"`
-	InlineData       *GeminiInlineData       `json:"inlineData,omitempty"`
-	FunctionResponse *GeminiFunctionResponse `json:"functionResponse,omitempty"`
-}
-
-type GeminiInlineData struct {
-	MimeType string `json:"mimeType"`
-	Data     string `json:"data"` // base64 encoded
-}
-
-type GeminiRealtimeInput struct {
-	MediaChunks []GeminiBlob `json:"mediaChunks,omitempty"`
-}
-
-type GeminiBlob struct {
-	MimeType string `json:"mimeType"`
-	Data     string `json:"data"` // base64 encoded
-}
-
-type GeminiTool struct {
-	FunctionDeclarations []GeminiFunctionDeclaration `json:"functionDeclarations,omitempty"`
-}
-
-type GeminiFunctionDeclaration struct {
-	Name        string                 `json:"name"`
-	Description string                 `json:"description"`
-	Parameters  map[string]interface{} `json:"parameters,omitempty"`
-}
-
-type GeminiToolResponse struct {
-	FunctionResponses []GeminiFunctionResponse `json:"functionResponses"`
-}
-
-type GeminiFunctionResponse struct {
-	Name     string                 `json:"name"`
-	Response map[string]interface{} `json:"response"`
-	ID       string                 `json:"id,omitempty"`
-}
-
-// Gemini -> Client Messages
-type GeminiServerMessage struct {
-	SetupComplete        *GeminiSetupComplete        `json:"setupComplete,omitempty"`
-	ServerContent        *GeminiServerContent        `json:"serverContent,omitempty"`
-	ToolCall             *GeminiToolCall             `json:"toolCall,omitempty"`
-	ToolCallCancellation *GeminiToolCallCancellation `json:"toolCallCancellation,omitempty"`
-	InputTranscription   *GeminiTranscription        `json:"inputTranscription,omitempty"`
-	OutputTranscription  *GeminiTranscription        `json:"outputTranscription,omitempty"`
-}
-
-type GeminiSetupComplete struct {
-	SessionID string `json:"sessionId"`
-}
-
-type GeminiServerContent struct {
-	ModelTurn          *GeminiContent `json:"modelTurn,omitempty"`
-	TurnComplete       bool           `json:"turnComplete,omitempty"`
-	Interrupted        bool           `json:"interrupted,omitempty"`
-	GenerationComplete bool           `json:"generationComplete,omitempty"`
-}
-
-type GeminiToolCall struct {
-	FunctionCalls []GeminiFunctionCall `json:"functionCalls"`
-}
-
-type GeminiFunctionCall struct {
-	Name string                 `json:"name"`
-	Args map[string]interface{} `json:"args,omitempty"`
-	ID   string                 `json:"id"`
-}
-
-type GeminiToolCallCancellation struct {
-	IDs []string `json:"ids"`
-}
-
-type GeminiTranscription struct {
-	Text     string `json:"text,omitempty"`
-	Finished bool   `json:"finished,omitempty"`
-}
-
-var upgrader = websocket.Upgrader{
-	CheckOrigin: func(r *http.Request) bool {
-		return true
-	},
-}
-
-// --- Updated WebSocket Handler for Gemini 2.5 Flash Live ---
-
-func HandleWebSocketStream(c echo.Context) error {
-	// var GeminiProjectID = os.Getenv("GOOGLE_CLOUD_PROJECT")
-	// var GeminiLocation = os.Getenv("GOOGLE_CLOUD_LOCATION")
-	var GeminiAccessToken = os.Getenv("GOOGLE_ACCESS_TOKEN")
+func HandleWebSocketStreamGoogleAI(c echo.Context) error {
+	var GeminiAPIKey = os.Getenv("GEMINI_API_KEY") // Use API Key instead of access token
 	var callId string
 
 	// Get the parameters from the URL
@@ -198,22 +41,15 @@ func HandleWebSocketStream(c echo.Context) error {
 	defer vobizWs.Close()
 	log.Println("✅ Vobiz Connected")
 
-	// 2. Connect to Gemini Live API
-	// Updated WebSocket URL for Gemini 2.5 Flash Live
+	// 2. Connect to Gemini Live API via Google AI
+	// Google AI API uses API keys and supports Gemini 2.0 models
 	geminiURL := fmt.Sprintf(
-		"wss://generativelanguage.googleapis.com/ws/google.ai.generativelanguage.v1alpha.GenerativeService.BidiGenerateContent?key=%s",
-		GeminiAccessToken,
+		"wss://generativelanguage.googleapis.com/ws/google.ai.generativelanguage.v1beta.GenerativeService.BidiGenerateContent?key=%s",
+		GeminiAPIKey,
 	)
 
-	// For Vertex AI, use this format instead:
-	// geminiURL := fmt.Sprintf(
-	// 	"wss://%s-aiplatform.googleapis.com/ws/google.cloud.aiplatform.v1beta1.LlmBidiService/BidiGenerateContent",
-	// 	GeminiLocation,
-	// )
-
 	header := http.Header{}
-	// For Vertex AI, add authorization header:
-	// header.Add("Authorization", "Bearer "+GeminiAccessToken)
+	// Google AI API doesn't need Authorization header - it uses the key in URL
 
 	geminiWs, _, err := websocket.DefaultDialer.Dial(geminiURL, header)
 	if err != nil {
@@ -221,12 +57,13 @@ func HandleWebSocketStream(c echo.Context) error {
 		return err
 	}
 	defer geminiWs.Close()
-	log.Println("✅ Gemini Connected")
+	log.Println("✅ Gemini Connected via Google AI API")
 
-	// 3. Configure Session with Gemini 2.5 Flash Live Native Audio
+	// 3. Configure Session with Gemini 2.0 Flash Live
+	// Note: Google AI API currently supports 2.0 models, not 2.5
 	setupMsg := GeminiClientMessage{
 		Setup: &GeminiSetup{
-			Model: "gemini-live-2.5-flash-native-audio", // Updated to 2.5 Flash Live Native Audio
+			Model: "models/gemini-2.5-flash-native-audio-preview-12-2025", // Use 2.0 model for Google AI API
 			GenerationConfig: &GeminiGenerationConfig{
 				ResponseModalities: []string{"AUDIO"},
 				SpeechConfig: &GeminiSpeechConfig{
@@ -299,12 +136,12 @@ Introduce yourself as "Hello, I'm Anika from KIWI Insurance" and ask how you can
 		log.Println("❌ Error sending setup message:", err)
 		return err
 	}
-	log.Println("📤 Session configuration sent with Gemini 2.5 Flash Live Native Audio")
+	log.Println("📤 Session configuration sent with Gemini 2.0 Flash (Google AI API)")
 
-	// Channels to handle graceful shutdown
+	// Rest of the implementation is identical to the main file
+	// ... (same goroutines for handling Gemini -> Vobiz and Vobiz -> Gemini)
+
 	done := make(chan struct{})
-
-	// Track if we're currently receiving audio to avoid interrupting ourselves
 	modelSpeaking := false
 	userInputBuffer := ""
 	fmt.Println(modelSpeaking)
@@ -319,7 +156,7 @@ Introduce yourself as "Hello, I'm Anika from KIWI Insurance" and ask how you can
 				return
 			}
 
-			fmt.Printf("Raw Message: %v", rawMsg)
+			// fmt.Printf("Raw Message: %v", string(rawMsg))
 
 			var msg GeminiServerMessage
 			if err := json.Unmarshal(rawMsg, &msg); err != nil {
@@ -327,27 +164,44 @@ Introduce yourself as "Hello, I'm Anika from KIWI Insurance" and ask how you can
 				continue
 			}
 
-			// Handle SetupComplete
 			if msg.SetupComplete != nil {
-				log.Printf("✅ Session Configured Successfully with Gemini 2.5 Flash Live Native Audio (Session ID: %s)", msg.SetupComplete.SessionID)
+				log.Printf("✅ Session Configured Successfully with Gemini 2.0 Flash (Session ID: %s)", msg.SetupComplete.SessionID)
+				// Trigger the first message from the AI
+				initialGreeting := GeminiClientMessage{
+					ClientContent: &GeminiClientContent{
+						Turns: []GeminiContent{
+							{
+								Role: "user",
+								Parts: []GeminiPart{
+									{Text: "Please start the call by introducing yourself as per your instructions."},
+								},
+							},
+						},
+						TurnComplete: true,
+					},
+				}
+
+				if err := geminiWs.WriteJSON(initialGreeting); err != nil {
+					log.Printf("❌ Error sending initial greeting trigger: %v", err)
+				}
+
 				continue
 			}
 
-			// Handle ServerContent (model's response)
 			if msg.ServerContent != nil {
 				if msg.ServerContent.Interrupted {
 					log.Println("🎤 User interrupted - Clearing Vobiz buffer")
-					vobizWs.WriteJSON(VobizOutboundMessage{Event: "clearAudio"})
+					err = vobizWs.WriteJSON(VobizOutboundMessage{Event: "clearAudio"})
+					if err != nil {
+						log.Printf("❌ Error clearing Vobiz buffer: %v", err)
+					}
 					modelSpeaking = false
 				}
 
 				if msg.ServerContent.ModelTurn != nil {
 					modelSpeaking = true
 					for _, part := range msg.ServerContent.ModelTurn.Parts {
-						// Handle audio output
 						if part.InlineData != nil && part.InlineData.MimeType == "audio/pcm" {
-							// Gemini sends PCM, need to convert to mu-law for Vobiz
-							// For now, we'll send as-is and handle conversion separately
 							payload := VobizOutboundMessage{
 								Event: "playAudio",
 								Media: &VobizMedia{
@@ -361,7 +215,6 @@ Introduce yourself as "Hello, I'm Anika from KIWI Insurance" and ask how you can
 							}
 						}
 
-						// Handle text output (for logging/transcription)
 						if part.Text != "" {
 							log.Printf("🤖 AI says: %s", part.Text)
 							if msg.ServerContent.TurnComplete {
@@ -386,7 +239,6 @@ Introduce yourself as "Hello, I'm Anika from KIWI Insurance" and ask how you can
 				}
 			}
 
-			// Handle Input Transcription (user's speech)
 			if msg.InputTranscription != nil {
 				if msg.InputTranscription.Text != "" {
 					userInputBuffer += msg.InputTranscription.Text
@@ -404,12 +256,10 @@ Introduce yourself as "Hello, I'm Anika from KIWI Insurance" and ask how you can
 				}
 			}
 
-			// Handle Output Transcription (AI's speech)
 			if msg.OutputTranscription != nil && msg.OutputTranscription.Text != "" {
 				log.Printf("🤖 AI transcription: %s", msg.OutputTranscription.Text)
 			}
 
-			// Handle Tool Calls
 			if msg.ToolCall != nil {
 				for _, fnCall := range msg.ToolCall.FunctionCalls {
 					log.Printf("🛠️ Tool Call: %s (ID: %s) with args: %v", fnCall.Name, fnCall.ID, fnCall.Args)
@@ -432,7 +282,6 @@ Introduce yourself as "Hello, I'm Anika from KIWI Insurance" and ask how you can
 						}
 					}
 
-					// Send function response back to Gemini
 					responseMsg := GeminiClientMessage{
 						ToolResponse: &GeminiToolResponse{
 							FunctionResponses: []GeminiFunctionResponse{
@@ -453,7 +302,6 @@ Introduce yourself as "Hello, I'm Anika from KIWI Insurance" and ask how you can
 				}
 			}
 
-			// Handle Tool Call Cancellation
 			if msg.ToolCallCancellation != nil {
 				log.Printf("🚫 Tool calls cancelled: %v", msg.ToolCallCancellation.IDs)
 			}
@@ -481,19 +329,10 @@ Introduce yourself as "Hello, I'm Anika from KIWI Insurance" and ask how you can
 			callId = msg.Start.CallId
 			log.Printf("Full Message Received: %+v", msg)
 			log.Printf("📞 Call Started (SID: %s) (CallID: %s)", msg.Start.StreamId, msg.Start.CallId)
-
-			// Wait for setup to complete
 			time.Sleep(500 * time.Millisecond)
-
-			// No need to send initial greeting - Gemini will start based on system instruction
 
 		case "media":
 			if msg.Media.Payload != "" {
-				// Vobiz sends mu-law audio, Gemini expects PCM
-				// You'll need to convert mu-law to PCM here
-				// For now, sending as-is (you'll need to add conversion)
-
-				// Decode base64 mu-law
 				audioData, err := base64.StdEncoding.DecodeString(msg.Media.Payload)
 				if err != nil {
 					log.Printf("❌ Error decoding audio: %v", err)
@@ -501,9 +340,6 @@ Introduce yourself as "Hello, I'm Anika from KIWI Insurance" and ask how you can
 				}
 
 				// TODO: Convert mu-law to PCM here
-				// pcmData := convertMuLawToPCM(audioData)
-
-				// For now, re-encode as base64 (replace with converted PCM)
 				pcmBase64 := base64.StdEncoding.EncodeToString(audioData)
 
 				realtimeMsg := GeminiClientMessage{
@@ -529,43 +365,4 @@ Introduce yourself as "Hello, I'm Anika from KIWI Insurance" and ask how you can
 	}
 
 	return nil
-}
-
-func callEnd(callId string) error {
-	var VobizAuthID = os.Getenv("VOBIZ_AUTH_ID")
-	var VobizAuthToken = os.Getenv("VOBIZ_AUTH_TOKEN")
-
-	url := fmt.Sprintf("https://api.vobiz.ai/api/v1/Account/%s/Call/%s/", VobizAuthID, callId)
-
-	req, err := http.NewRequest("DELETE", url, nil)
-	if err != nil {
-		return fmt.Errorf("failed to create request: %w", err)
-	}
-
-	req.Header.Set("X-Auth-ID", VobizAuthID)
-	req.Header.Set("X-Auth-Token", VobizAuthToken)
-	req.Header.Set("Content-Type", "application/json")
-
-	client := &http.Client{}
-	resp, err := client.Do(req)
-	if err != nil {
-		return fmt.Errorf("failed to execute request: %w", err)
-	}
-	defer resp.Body.Close()
-
-	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
-		return fmt.Errorf("vobiz api returned error status: %s", resp.Status)
-	}
-
-	log.Printf("Successfully terminated call: %s", callId)
-	return nil
-}
-
-func getCustomerInfo() map[string]interface{} {
-	return map[string]interface{}{
-		"name":    "Vipin Kumawat",
-		"age":     22,
-		"gender":  "Male",
-		"address": "Village Bhoya, Post Harsh, Sikar, Rajasthan, India, 332021",
-	}
 }
