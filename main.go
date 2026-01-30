@@ -5,6 +5,7 @@ import (
 	"log"
 	"net/http"
 
+	"github.com/AVVKavvk/openai-vobiz/gemini"
 	"github.com/AVVKavvk/openai-vobiz/rabbitmq"
 	"github.com/gorilla/websocket"
 	"github.com/joho/godotenv"
@@ -39,7 +40,7 @@ func main() {
 	e.POST("/incoming-call", HandleIncomingCall)
 
 	// 2. The WebSocket Bridge
-	e.GET("/stream", HandleWebSocketStream)
+	e.GET("/stream", gemini.HandleWebSocketStream)
 	e.POST("/hangup", handleHangup)
 	e.POST("/outbound-call", HandleOutboundCall)
 
